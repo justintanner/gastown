@@ -19,15 +19,21 @@ RUN apt-get update && apt-get install -y \
     netcat-openbsd \
     tini \
     vim \
+    libicu-dev \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Upgrade OpenCode to pinned version (replaces base image copy in-place)
+RUN npm install -g opencode-ai@1.3.13
 
 # Install Go from official tarball (apt golang-go is too old)
 RUN ARCH=$(dpkg --print-architecture) && \
     curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" | tar -C /usr/local -xz
-ENV PATH="/app/gastown:/usr/local/go/bin:/home/agent/go/bin:${PATH}"
+ENV PATH="/app/gastown:/usr/local/go/bin:/home/agent/go/bin:/home/agent/bin:${PATH}"
 
-# Install beads (bd) and dolt
-RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+# Install beads (bd) from source — prebuilt binaries link against ICU 74
+# but the base image ships ICU 76.
+RUN GOBIN=/usr/local/bin CGO_ENABLED=1 go install github.com/steveyegge/beads/cmd/bd@latest \
+    && go clean -cache -modcache
 RUN curl -fsSL https://github.com/dolthub/dolt/releases/latest/download/install.sh | bash
 
 # Set up directories
@@ -52,5 +58,9 @@ RUN chmod +x /app/docker-entrypoint.sh
 
 WORKDIR /gt
 
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=5s --start-period=90s --retries=3 \
+  CMD curl -fsS http://localhost:8080/up || exit 1
+
 ENTRYPOINT ["tini", "--", "/app/docker-entrypoint.sh"]
-CMD ["sleep", "infinity"]
+CMD ["gt", "dashboard", "--bind", "0.0.0.0", "--port", "8080"]

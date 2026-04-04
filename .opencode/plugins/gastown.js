@@ -1,6 +1,6 @@
 // Gas Town OpenCode plugin: hooks SessionStart/Compaction via events.
 // Injects gt prime context into the system prompt via experimental.chat.system.transform.
-export const GasTown = async ({ $, directory }) => {
+export const server = async ({ $, directory }) => {
   const role = (process.env.GT_ROLE || "").toLowerCase();
   const autonomousRoles = new Set(["polecat", "witness", "refinery", "deacon"]);
   let didInit = false;
@@ -8,7 +8,6 @@ export const GasTown = async ({ $, directory }) => {
   // Promise-based context loading ensures the system transform hook can
   // await the result even if session.created hasn't resolved yet.
   let primePromise = null;
-
   const captureRun = async (cmd) => {
     try {
       // .text() captures stdout as a string and suppresses terminal echo.
@@ -62,6 +61,19 @@ export const GasTown = async ({ $, directory }) => {
       } else {
         // Reset so next transform retries instead of pushing empty forever.
         primePromise = null;
+      }
+
+    },
+    // Mirrors Claude's UserPromptSubmit hook: fires on every user prompt,
+    // drains both mail and the nudge queue via gt mail check --inject.
+    "chat.message": async ({ sessionID }, output) => {
+      if (!autonomousRoles.has(role)) return;
+      const mail = await captureRun("gt mail check --inject");
+      if (mail) {
+        output.parts.push({
+          type: "text",
+          text: mail,
+        });
       }
     },
     "experimental.session.compacting": async ({ sessionID }, output) => {
