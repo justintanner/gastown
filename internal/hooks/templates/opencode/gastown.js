@@ -1,6 +1,10 @@
 // Gas Town OpenCode plugin: hooks SessionStart/Compaction via events.
 // Injects gt prime context into the system prompt via experimental.chat.system.transform.
-const log = (...args) => console.error("[gastown]", ...args);
+// Logging is opt-in via GT_OPENCODE_DEBUG — stderr writes corrupt the TUI redraw
+// (especially high-frequency events like message.part.delta during streaming).
+const log = process.env.GT_OPENCODE_DEBUG
+  ? (...args) => console.error("[gastown]", ...args)
+  : () => {};
 export const server = async ({ $, directory }) => {
   log("plugin loaded, directory:", directory);
   const role = (process.env.GT_ROLE || "").toLowerCase();
@@ -36,18 +40,22 @@ export const server = async ({ $, directory }) => {
 
   return {
     event: async ({ event }) => {
-      log("event:", event?.type);
+      // Don't log every event — message.part.delta fires per streaming token
+      // and floods the TUI. Log only the ones we actually handle.
       if (event?.type === "session.created") {
+        log("event: session.created");
         if (didInit) return;
         didInit = true;
         // Start loading prime context early; system.transform will await it.
         primePromise = loadPrime();
       }
       if (event?.type === "session.compacted") {
+        log("event: session.compacted");
         // Reset so next system.transform gets fresh context.
         primePromise = loadPrime();
       }
       if (event?.type === "session.deleted") {
+        log("event: session.deleted");
         const sessionID = event.properties?.info?.id;
         if (sessionID) {
           await $`gt costs record --session ${sessionID}`.catch(() => {});
