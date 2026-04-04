@@ -1,7 +1,10 @@
 // Gas Town OpenCode plugin: hooks SessionStart/Compaction via events.
 // Injects gt prime context into the system prompt via experimental.chat.system.transform.
+const log = (...args) => console.error("[gastown]", ...args);
 export const server = async ({ $, directory }) => {
+  log("plugin loaded, directory:", directory);
   const role = (process.env.GT_ROLE || "").toLowerCase();
+  log("role:", role || "(none)");
   const autonomousRoles = new Set(["polecat", "witness", "refinery", "deacon"]);
   let didInit = false;
 
@@ -33,6 +36,7 @@ export const server = async ({ $, directory }) => {
 
   return {
     event: async ({ event }) => {
+      log("event:", event?.type);
       if (event?.type === "session.created") {
         if (didInit) return;
         didInit = true;
@@ -51,6 +55,7 @@ export const server = async ({ $, directory }) => {
       }
     },
     "experimental.chat.system.transform": async (input, output) => {
+      log("system.transform called, sessionID:", input.sessionID);
       // If session.created hasn't fired yet, start loading now.
       if (!primePromise) {
         primePromise = loadPrime();
@@ -67,6 +72,7 @@ export const server = async ({ $, directory }) => {
     // Mirrors Claude's UserPromptSubmit hook: fires on every user prompt,
     // drains both mail and the nudge queue via gt mail check --inject.
     "chat.message": async ({ sessionID }, output) => {
+      log("chat.message, role:", role, "sessionID:", sessionID);
       if (!autonomousRoles.has(role)) return;
       const mail = await captureRun("gt mail check --inject");
       if (mail) {
@@ -77,6 +83,7 @@ export const server = async ({ $, directory }) => {
       }
     },
     "experimental.session.compacting": async ({ sessionID }, output) => {
+      log("session.compacting, sessionID:", sessionID);
       const roleDisplay = role || "unknown";
       output.context.push(`
 ## Gas Town Multi-Agent System
