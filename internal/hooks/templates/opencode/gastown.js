@@ -75,19 +75,16 @@ export const server = async ({ $, directory }) => {
         // Reset so next transform retries instead of pushing empty forever.
         primePromise = null;
       }
-
-    },
-    // Mirrors Claude's UserPromptSubmit hook: fires on every user prompt,
-    // drains both mail and the nudge queue via gt mail check --inject.
-    "chat.message": async ({ sessionID }, output) => {
-      log("chat.message, role:", role, "sessionID:", sessionID);
-      if (!autonomousRoles.has(role)) return;
-      const mail = await captureRun("gt mail check --inject");
-      if (mail) {
-        output.parts.push({
-          type: "text",
-          text: mail,
-        });
+      // Per-turn mail injection. We use output.system (string[]) because
+      // output.parts in chat.message requires fully hydrated Part objects
+      // with id/sessionID/messageID — pushing a bare {type,text} there
+      // crashes OpenCode with "SyncEvent.run: sessionID required but not found".
+      // system.transform runs per request, so mail refreshes every turn.
+      if (autonomousRoles.has(role)) {
+        const mail = await captureRun("gt mail check --inject");
+        if (mail) {
+          output.system.push(mail);
+        }
       }
     },
     "experimental.session.compacting": async ({ sessionID }, output) => {
