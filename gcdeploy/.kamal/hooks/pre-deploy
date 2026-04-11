@@ -1,0 +1,6 @@
+#!/bin/sh
+# Best-effort graceful shutdown before rolling a new container.
+# Never fails the deploy on its own account.
+set -e
+kamal app exec --reuse "gc stop --city /gt/city || true" 2>/dev/null || true
+exit 0

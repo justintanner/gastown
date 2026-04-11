@@ -1,0 +1,19 @@
+# Gas City managing the apicity TypeScript monorepo — server/container edition.
+#
+# This file is baked into the apicity-gc Docker image at /app/city.toml.baked
+# and copied to /gt/city/city.toml by docker-entrypoint.sh on first boot.
+# Intentionally NO [[rigs]] block: the rig is registered by
+# `gc rig add /gt/apicity --include /gt/apicity/gc/pack` in the entrypoint,
+# which appends the [[rigs]] block here and initializes /gt/apicity/.beads
+# in one idempotent step. Keeping a single writer avoids duplicate-rig
+# conflicts between the baked file and the live rig-add.
+
+[workspace]
+name = "apicity"
+provider = "claude"
+
+[daemon]
+patrol_interval = "30s"
+max_restarts = 5
+restart_window = "1h"
+shutdown_timeout = "5s"

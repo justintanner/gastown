@@ -1,0 +1,70 @@
+# Kamal deploy config for apicity-gc.
+#
+# Forks ~/gastown/config/deploy.yml — same box (65.21.88.38), new subdomain
+# (apicity.superlzy.com), new image stream, new volume. The gt deploy at
+# superlzy.com is untouched; both containers coexist on the same host.
+
+service: apicity-gc
+image: justintanner/apicity-gc
+primary_role: daemon
+
+servers:
+  daemon:
+    hosts:
+      - 65.21.88.38
+    proxy:
+      host: apicity.superlzy.com
+      app_port: 8080
+      ssl: true
+      healthcheck:
+        path: /up
+        interval: 10
+        timeout: 5
+    options:
+      memory: 16g
+
+registry:
+  server: localhost:5555
+
+env:
+  clear:
+    GC_SERVER: "1"
+    GIT_USER: "justintanner-gt[bot]"
+    GIT_EMAIL: "justintanner-gt[bot]@users.noreply.github.com"
+    GH_APP_ID: "3209605"
+    GH_APP_INSTALLATION_ID: "119659593"
+    TERM: "xterm-256color"
+  secret:
+    - OPENAI_API_KEY
+    - KIE_API_KEY
+    - XAI_API_KEY
+    - XAI_MANAGEMENT_API_KEY
+    - KIMI_CODING_API_KEY
+    - FAL_API_KEY
+    - FIREWORKS_API_KEY
+    - FIREWORKS_ACCOUNT_ID
+    - GEMINI_API_KEY
+    - ANTHROPIC_API_KEY
+    - DASHSCOPE_API_KEY
+    - DASHBOARD_USER
+    - DASHBOARD_PASS
+    - GH_APP_PEM
+
+builder:
+  arch: amd64
+  context: ..
+  dockerfile: gcdeploy/Dockerfile
+
+volumes:
+  - gc-workspace:/gt
+  - claude-config-gc:/home/agent/.claude
+
+aliases:
+  shell:    app exec --interactive --reuse "bash"
+  logs:     app exec --reuse "tail -100 /gt/city/.gc/dashboard.log"
+  status:   app exec --reuse "gc status --city /gt/city"
+  cities:   app exec --reuse "gc cities"
+  rigs:     app exec --reuse "gc rig list --city /gt/city"
+  formulas: app exec --reuse "gc formula list --city /gt/city"
+  orders:   app exec --reuse "gc order list --city /gt/city"
+  config:   app exec --reuse "gc config show --city /gt/city"
